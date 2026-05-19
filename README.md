@@ -1,125 +1,133 @@
-# Linear-Block-Code
+# Experimental verification of Linear-Block-Code
 # Aim
 Write a simple python program to Generate Matrix, Codeword, Hamming weight, Syndrome matrix and find the error on received codeword using Linear block code. 
 # Tools required
-Python IDE with Numpy and Scipy
+PC & Google Colab
+# Theory
+A Linear Block Code is an error-correcting code in which k data bits are encoded into n-bit codewords using linear combinations, so that errors during transmission can be detected and corrected.Each block of k bits is converted into an n-bit codeword using a generator matrix. The codewords follow linear properties (sum of any two codewords is also a valid codeword).
 # Program
 ```
 import numpy as np
 
-pb = [] # Parity matrix
-Ik = [] # I_K Matrix
-p = []
-m = []
-h = []
-h_dis = []
-r_code = []
-err = []
-col = int(input("Enter the Parity bits : "))
-row = int(input("Enter the Message bits : "))
+pb = []
 
-# Generator matrix
-for i in range (row):
-  p = list(map(int, input(f"Enter the row values : {i+1} (Separated by space) : ").split())) 
-  pb.append(p)
-p_mat = np.array(pb, dtype=int)
-Ik=np.eye(row, dtype=int) # Diagonal Matrix
-g_mat = np.hstack((p_mat,Ik)) # Generator Matris
+# Number of parity bits (n-k)
+col = int(input("Enter the number of parity bits : "))
 
-# Codeword length and parity bit length
-n, k = g_mat.T.shape
+# Number of message bits (k)
+row = int(input("Enter the number of message bits : "))
 
-# Possible Message Bits
-m = np.array([[1 if (i >> (k - j - 1)) & 1 else 0 for j in range(k)] for i in range(2**k)])
+# -----------------------------
+# Construct Parity Matrix P
+# -----------------------------
+print("\nEnter the Parity Matrix P row-wise:")
 
-# Codewords and Hamming weights
-c = np.mod(np.dot(m, g_mat), 2)
+for i in range(row):
+    p = list(map(int, input(f"Row {i+1}: ").split()))
 
-for i, row in enumerate(c):
-  h_dis1 = np.sum(row) 
-  h_dis.append(h_dis1)
-h_mat = np.array(h_dis).reshape(1,-1)
-#h_mat = np.hstack(h_mat)
-d_min = np.min(np.sum(c[1:], axis=1))
+    # Check correct column size
+    if len(p) != col:
+        print(f"Error: Enter exactly {col} elements")
+        exit()
 
-# H matrix (Parity-check matrix)
-h = p_mat[:, :3]
-hp = np.hstack((np.eye(n-k, dtype=int), h.T))
-ht = hp.T
-zero_row = np.zeros((1, ht.shape[1]), dtype=int) 
-hp1 = np.vstack((zero_row, ht))
+    pb.append(p)
 
-print('**********')
-print('The Generator Matrix is: ')
-#for r in p_mat: 
-#    print(" ".join(map(str, r)))
-#for r in Ik: 
-#    print(" ".join(map(str, r)))
-for r in g_mat: 
-  print(" ".join(map(str, r)))
+P = np.array(pb, dtype=int)
 
-print('**********')
-print(f'Message Bits  Codeword   Hamming Weight')
-code_word = np.hstack((m, c, h_mat.T))
-for r in range(code_word.shape[0]):
-  format_row = " ".join(map(str, code_word[r, :k])) + '\t' + " ".join(map(str, code_word[r, k:n+k])) + '\t' + str(code_word[r, -1])
-  print(format_row)
+# -----------------------------
+# Generator Matrix G = [P | I]
+# -----------------------------
+I_k = np.eye(row, dtype=int)
 
-print('**********')
-print(f'Minimum Hamming distance : {d_min}')
+G = np.hstack((P, I_k))
 
-# Parity Check matrix
-print('**********')
-print(f'Parity Check Matrix')
-for r in hp:
-   print(" ".join(map(str, r)))
-print('**********')
-print(f'Parity Check Matrix Transpose')
-for r in hp1:
-  print(" ".join(map(str, r)))
-#Receive codeword
-rc = list(map(int, input(f"Enter the error codeword : ").split()))
-r_code.append(rc)
-r_c = np.array(r_code)
-#Syndrome Calculation
-e = np.mod(np.dot(r_c, ht), 2)
-#print('**********')
-#print(f'Received codeword Matrix')
-#for r in r_c:
-#    print(" ".join(map(str, r)))
-# Find the Error position
-for i in range(n):
-  if np.array_equal(e[0], ht[i, :]):
-    err = np.eye(n, dtype=int)[i,:]
-print(f"The error postion is : " + " ".join(map(str, err)))
-n1 = hp1.shape[0]
-print(f"The size is : {n1}")
-print('**********')
-print(f'Syndrome Matrix')
-for i in range(n1):
-  combined_row = np.concatenate((hp1[i, :], np.eye(n1, dtype=int)[i,:]))
-  formatted_row = " ".join(map(str, combined_row[:3])) + '\t' + " ".join(map(str, combined_row[k:]))
-  print(f'{formatted_row}')
-print('**********')
-print(f"Syndeome of given received codeword is : " + " ".join(map(str, e[0])))
+print("\nGenerator Matrix G:")
+print(G)
 
-# Correct the error in the received codeword
-add = err + rc
-add = np.array(add)
-add1 = add % 2
-print(f"The correct codeword is : " + " " .join(map(str,add1)))
+# -----------------------------
+# Generate all message vectors
+# -----------------------------
+k = row
+
+messages = np.array([
+    [int(x) for x in format(i, f'0{k}b')]
+    for i in range(2**k)
+])
+
+# Generate codewords
+codewords = np.mod(np.dot(messages, G), 2)
+
+print("\nMessage      Codeword      Weight")
+
+weights = []
+
+for i in range(len(messages)):
+    wt = np.sum(codewords[i])
+    weights.append(wt)
+
+    print(messages[i], "   ", codewords[i], "   ", wt)
+
+# -----------------------------
+# Minimum Hamming Distance
+# -----------------------------
+non_zero_weights = [w for w in weights if w != 0]
+
+d_min = min(non_zero_weights)
+
+print("\nMinimum Hamming Distance =", d_min)
+
+# -----------------------------
+# Parity Check Matrix H=[I | Pᵀ]
+# -----------------------------
+I_r = np.eye(col, dtype=int)
+
+H = np.hstack((I_r, P.T))
+
+print("\nParity Check Matrix H:")
+print(H)
+
+# Transpose of H
+H_T = H.T
+
+# -----------------------------
+# Receive codeword
+# -----------------------------
+rc = list(map(int, input("\nEnter received codeword: ").split()))
+
+# Length check
+if len(rc) != G.shape[1]:
+    print("Error: Invalid codeword length")
+    exit()
+
+r = np.array(rc)
+
+# Syndrome
+S = np.mod(np.dot(r, H_T), 2)
+
+print("Syndrome =", S)
+
+# -----------------------------
+# Error Detection & Correction
+# -----------------------------
+error = np.zeros(G.shape[1], dtype=int)
+
+for i in range(G.shape[1]):
+
+    if np.array_equal(H_T[i], S):
+        error[i] = 1
+        break
+
+print("Error Vector =", error)
+
+# Corrected codeword
+corrected = np.mod(r + error, 2)
+
+print("Corrected Codeword =", corrected)
 ```
-# Output Waveform
-![image](https://github.com/user-attachments/assets/dbb87d72-7772-4aba-bfbe-05e5e1bdcd2e)
+# Output
 
+<img width="433" height="716" alt="image" src="https://github.com/user-attachments/assets/a1711717-6b78-45c9-869e-ee83f83fee04" />
+<img width="433" height="216" alt="image" src="https://github.com/user-attachments/assets/3593ab0e-2ec7-4a38-b295-6d8aa183352d" />
 
 # Results
-Thus linear block code operation for the given input is successfully verified.
-# Hardware experiment output waveform.
-![image](https://github.com/user-attachments/assets/6082292f-fceb-4d93-9a25-2d3bd037cbd0)
-![image](https://github.com/user-attachments/assets/ba90c84a-0ddb-410b-8032-a4df19501252)
-![image](https://github.com/user-attachments/assets/a61df199-955a-4b5b-85c3-afbd9bdd43d3)
-
-
-
-
+Using linear block codes, errors in transmitted data can be efficiently detected and corrected, improving the reliability of communication systems without significantly increasing the data size.
